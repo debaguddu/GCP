@@ -9,7 +9,8 @@ A collection of batch ETL and data processing pipelines built with **Apache Beam
 ```
 ├── PythonNotebook/
 │   ├── 1.ipynb                 # Pipeline 1: Employee Department Salary Summary (GCS & Dataflow)
-│   └── 2.ipynb                 # Pipeline 2: Retail Sales Monthly Aggregation (Beam vs. PySpark)
+│   ├── 2.ipynb                 # Pipeline 2: Retail Sales Monthly Aggregation (Beam vs. PySpark)
+│   └── 3.ipynb                 # Pipeline 3: Clickstream Sessionization & Cart Abandonment (Beam vs. PySpark Streaming)
 ├── SourceFiles/
 │   ├── Employers_data.csv       # Employee demographic and salary records
 │   └── retail_sales_dataset.csv # Retail transaction records (date, category, amount)
@@ -19,6 +20,7 @@ A collection of batch ETL and data processing pipelines built with **Apache Beam
 │       └── pipeline.py         # Modular CLI pipeline for Employee Salary ETL
 ├── generate_notebook.py        # Generator script for 1.ipynb
 ├── generate_notebook_2.py      # Generator script for 2.ipynb
+├── generate_notebook_3.py      # Generator script for 3.ipynb
 ├── pyproject.toml              # Project dependencies and configuration
 └── uv.lock                     # Deterministic lockfile managed by uv
 ```
@@ -48,6 +50,20 @@ A collection of batch ETL and data processing pipelines built with **Apache Beam
 - **Deep Dive & Analysis**:
   - Detailed mechanics of Beam PTransforms (`ReadFromText`, `ParDo`, `Filter`, `CombinePerKey`, `WriteToText`).
   - In-depth architectural comparison between Apache Beam's Key-Value Combiner Lifting and **PySpark's `groupBy` and `agg`** with Catalyst `HashAggregate` / Tungsten engine.
+
+### 3. Clickstream 30-Min Fixed Windowing & Cart Abandonment ([`PythonNotebook/3.ipynb`](PythonNotebook/3.ipynb))
+- **Source**: Directly from GCS bucket (`gs://<BUCKET_NAME>/input/ecommerce_clickstream.csv` and `gs://<BUCKET_NAME>/input/2019-Oct.csv`). Local source copy verified and deleted upon upload.
+- **Transformations**:
+  - Assigns native Beam event timestamps using `window.TimestampedValue(record, epoch_timestamp)`.
+  - Implements a **30-minute Fixed Window** (`window.FixedWindows(30 * 60)`).
+  - Groups clickstream events by `user_id` and window (`beam.GroupByKey()`).
+  - Detects cart abandonment: identifies sessions having $\ge 1$ `'cart'` event but **no** `'purchase'` event using `beam.DoFn.WindowParam`.
+  - Computes abandoned cart value, product IDs, and event sequence.
+  - Formats output records into JSON Lines (NDJSON).
+- **Sinks**: Partitioned JSON files in GCS (`gs://<BUCKET_NAME>/output/abandoned_carts/sessions-*.json`) and local directory (`local_output/abandoned_carts/`).
+- **Deep Dive & Analysis**:
+  - Technical breakdown of Event Time vs. Processing Time, Watermarks, Allowed Lateness, Triggers, and Pane Accumulation modes.
+  - In-depth architectural contrast between Apache Beam windowing (`WindowedValue` metadata + `WindowInto`) and **PySpark Structured Streaming** windowing (`groupBy(window(...), user_id)` + Catalyst state stores).
 
 ---
 
