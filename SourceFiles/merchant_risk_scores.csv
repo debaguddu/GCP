@@ -1,0 +1,6 @@
+merchant_category,risk_score,risk_level
+Travel,0.85,HIGH
+Electronics,0.72,HIGH
+Clothing,0.4,MEDIUM
+Food,0.25,LOW
+Grocery,0.15,LOW

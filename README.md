@@ -10,9 +10,12 @@ A collection of batch ETL and data processing pipelines built with **Apache Beam
 ├── PythonNotebook/
 │   ├── 1.ipynb                 # Pipeline 1: Employee Department Salary Summary (GCS & Dataflow)
 │   ├── 2.ipynb                 # Pipeline 2: Retail Sales Monthly Aggregation (Beam vs. PySpark)
-│   └── 3.ipynb                 # Pipeline 3: Clickstream Sessionization & Cart Abandonment (Beam vs. PySpark Streaming)
+│   ├── 3.ipynb                 # Pipeline 3: Clickstream Sessionization & Cart Abandonment (Beam vs. PySpark Streaming)
+│   └── 4.ipynb                 # Pipeline 4: Financial Transactions Side Input Enrichment & Sliding Window Rolling Avg
 ├── SourceFiles/
 │   ├── Employers_data.csv       # Employee demographic and salary records
+│   ├── credit_card_fraud_10k.csv # Financial transactions dataset (10k records)
+│   ├── merchant_risk_scores.csv # Merchant category risk reference lookup table
 │   └── retail_sales_dataset.csv # Retail transaction records (date, category, amount)
 ├── src/
 │   └── gcp/
@@ -21,6 +24,7 @@ A collection of batch ETL and data processing pipelines built with **Apache Beam
 ├── generate_notebook.py        # Generator script for 1.ipynb
 ├── generate_notebook_2.py      # Generator script for 2.ipynb
 ├── generate_notebook_3.py      # Generator script for 3.ipynb
+├── generate_notebook_4.py      # Generator script for 4.ipynb
 ├── pyproject.toml              # Project dependencies and configuration
 └── uv.lock                     # Deterministic lockfile managed by uv
 ```
@@ -64,6 +68,20 @@ A collection of batch ETL and data processing pipelines built with **Apache Beam
 - **Deep Dive & Analysis**:
   - Technical breakdown of Event Time vs. Processing Time, Watermarks, Allowed Lateness, Triggers, and Pane Accumulation modes.
   - In-depth architectural contrast between Apache Beam windowing (`WindowedValue` metadata + `WindowInto`) and **PySpark Structured Streaming** windowing (`groupBy(window(...), user_id)` + Catalyst state stores).
+
+### 4. Financial Transactions Side Input Enrichment & Sliding Window ([`PythonNotebook/4.ipynb`](PythonNotebook/4.ipynb))
+- **Source**: `SourceFiles/credit_card_fraud_10k.csv` (main transactions) & `SourceFiles/merchant_risk_scores.csv` (reference lookup table).
+- **Transformations**:
+  - Enriches main transactions using Beam's **Side Input** pattern (`beam.pvalue.AsDict`).
+  - Assigns continuous event-time timestamps using `window.TimestampedValue`.
+  - Implements a **Sliding Window of 2 Hours with a 30-Minute Slide Period** (`window.SlidingWindows(size=7200, period=1800)`).
+  - Groups transactions per `(cardholder_id, Window)` to compute rolling averages of `'amount'`, transaction counts, and average merchant risk scores.
+  - Extracts window metadata via `beam.DoFn.WindowParam`.
+  - Formats output records into JSON Lines (NDJSON).
+- **Sinks**: Partitioned JSON output (`local_output/rolling_cardholder_summary/cardholder_rolling_avg-*.json`).
+- **Deep Dive & Analysis**:
+  - In-depth comparison of **Beam Side Inputs vs. PySpark Broadcast Variables** (origin, lazy caching, windowed side inputs / temporal joins, driver decoupling).
+  - Comprehensive step-by-step breakdown of **Sliding Window mechanics** (interval math, overlap factor, combiner optimization, watermark eviction).
 
 ---
 
